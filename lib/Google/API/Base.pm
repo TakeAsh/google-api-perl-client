@@ -2,6 +2,7 @@ package Google::API::Base;
 
 use strict;
 use warnings;
+use utf8;
 use Carp;
 
 sub new {

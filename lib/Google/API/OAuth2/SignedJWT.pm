@@ -2,6 +2,7 @@ package Google::API::OAuth2::SignedJWT;
 
 use strict;
 use warnings;
+use utf8;
 
 use HTTP::Request::Common;
 use JSON;

@@ -3,6 +3,7 @@ package Google::API::Client;
 use strict;
 use 5.008_001;
 our $VERSION = '0.14';
+use utf8;
 
 use Google::API::Method;
 use Google::API::Resource;
@@ -37,7 +38,7 @@ sub build {
         # throw an error
         die 'could not get service document.' . $res->status_line;
     }
-    my $document = $self->{json_parser}->decode($res->content);
+    my $document = $self->{json_parser}->decode($res->decoded_content);
     $self->build_from_document($document, $discovery_service_url, $args);
 }
 
@@ -94,7 +95,7 @@ sub _new_ua {
 sub _new_json_parser {
     my $class = shift;
     require JSON;
-    my $parser = JSON->new;
+    my $parser = JSON->new->utf8;
     return $parser;
 }
 

@@ -2,6 +2,7 @@ package Google::API::OAuth2::Client;
 
 use strict;
 use warnings;
+use utf8;
 use URI;
 
 sub new {
@@ -89,7 +90,7 @@ sub exchange {
     unless ($res->is_success) {
         return;
     }
-    my $access_token = $self->{json_parser}->decode($res->content);
+    my $access_token = $self->{json_parser}->decode($res->decoded_content);
     $self->{token_obj} = $access_token;
     return $self->{token_obj};
 }
@@ -116,7 +117,7 @@ sub refresh {
     unless ($res->is_success) {
         return;
     }
-    my $access_token = $self->{json_parser}->decode($res->content);
+    my $access_token = $self->{json_parser}->decode($res->decoded_content);
     unless ($access_token->{refresh_token}) {
         $access_token->{refresh_token} = $self->{token_obj}{refresh_token};
     }

@@ -2,6 +2,7 @@ package Google::API::Resource;
 
 use strict;
 use warnings;
+use utf8;
 
 use base 'Google::API::Base';
 
