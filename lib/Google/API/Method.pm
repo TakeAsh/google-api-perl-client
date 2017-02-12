@@ -2,6 +2,7 @@ package Google::API::Method;
 
 use strict;
 use warnings;
+use utf8;
 
 use Encode;
 use HTTP::Request;
@@ -14,82 +15,90 @@ sub new {
     for my $required (qw/ua json_parser base_url opt doc/) {
         die unless $param{$required};
     }
-    bless { %param }, $class;
+    bless {%param}, $class;
 }
 
 sub execute {
-    my ($self, $arg) = @_;
-    my $url = $self->{base_url} . $self->{doc}{path};
-    my $http_method = uc($self->{doc}{httpMethod});
+    my ( $self, $arg ) = @_;
+    my $url         = $self->{base_url} . $self->{doc}{path};
+    my $http_method = uc( $self->{doc}{httpMethod} );
     my %required_param;
-    for my $p (@{$self->{doc}{parameterOrder}}) {
+    for my $p ( @{ $self->{doc}{parameterOrder} } ) {
         $required_param{$p} = delete $self->{opt}{$p};
-        if ($self->{opt}{body} && $self->{opt}{body}{$p}) {
+        if ( $self->{opt}{body} && $self->{opt}{body}{$p} ) {
             $required_param{$p} = delete $self->{opt}{body}{$p};
         }
     }
     $url =~ s/{([^}]+)}/uri_escape(delete $required_param{$1})/eg;
     my $uri = URI->new($url);
     my $request;
-    if ($http_method eq 'POST' ||
-        $http_method eq 'PUT' ||
-        $http_method eq 'PATCH' ||
-        $http_method eq 'DELETE') {
-        $uri->query_form(\%required_param);
-        $request = HTTP::Request->new($http_method => $uri);
-        # Some API's (ie: admin/directoryv1/groups/delete) require requests 
+    if (   $http_method eq 'POST'
+        || $http_method eq 'PUT'
+        || $http_method eq 'PATCH'
+        || $http_method eq 'DELETE' )
+    {
+        $uri->query_form( \%required_param );
+        $request = HTTP::Request->new( $http_method => $uri );
+
+        # Some API's (ie: admin/directoryv1/groups/delete) require requests
         # with an empty body section to be explicitly zero length.
-        if (%{$self->{opt}{body}}) {
-            $request->content_type('application/json');
-            $request->content($self->{json_parser}->encode($self->{opt}{body}));
+        if ( my $body = $self->{opt}{body} ) {
+            $request->content_type('application/json; charset=utf-8');
+            $request->content( $self->{json_parser}->encode($body) );
+        } elsif (%required_param) {
+            my $content = $uri->query;
+            $request->content_type('application/x-www-form-urlencoded');
+            $request->content($content);
+            $request->content_length( length($content) );
         } else {
             $request->content_length(0);
         }
-    } elsif ($http_method eq 'GET') {
+    } elsif ( $http_method eq 'GET' ) {
         my $body = $self->{opt}{body} || {};
-        my %q = (
-            %required_param,
-            %$body,
-        );
-        if ($arg->{key}) {
+        my %q = ( %required_param, %$body, );
+        if ( $arg->{key} ) {
             $q{key} = $arg->{key};
         }
-        $uri->query_form(\%q);
-        $request = HTTP::Request->new($http_method => $uri);
+        $uri->query_form( \%q );
+        $request = HTTP::Request->new( $http_method => $uri );
     }
-    if ($arg->{auth_driver}) {
-        $request->header('Authorization',
+    if ( $arg->{auth_driver} ) {
+        $request->header(
+            'Authorization',
             sprintf "%s %s",
-                $arg->{auth_driver}->token_type,
-                $arg->{auth_driver}->access_token);
+            $arg->{auth_driver}->token_type,
+            $arg->{auth_driver}->access_token
+        );
     }
     my $response = $self->{ua}->request($request);
-    if ($response->code == 401 && $arg->{auth_driver}) {
+    if ( $response->code == 401 && $arg->{auth_driver} ) {
         $arg->{auth_driver}->refresh;
-        $request->header('Authorization',
+        $request->header(
+            'Authorization',
             sprintf "%s %s",
-                $arg->{auth_driver}->token_type,
-                $arg->{auth_driver}->access_token);
+            $arg->{auth_driver}->token_type,
+            $arg->{auth_driver}->access_token
+        );
         $response = $self->{ua}->request($request);
     }
-    unless ($response->is_success) {
+    unless ( $response->is_success ) {
         $self->_die_with_error($response);
     }
-    if ($response->code == 204) {
+    if ( $response->code == 204 ) {
         return 1;
     }
     return $response->header('content-type') =~ m!^application/json!
-           ? $self->{json_parser}->decode(decode_utf8($response->content))
-           : $response->content
-           ;
+        ? $self->{json_parser}->decode( $response->decoded_content )
+        : $response->decoded_content;
 }
 
 sub _die_with_error {
-    my ($self, $response) = @_;
+    my ( $self, $response ) = @_;
     my $err_str = $response->status_line;
-    if ($response->content
-        && $response->header('content-type') =~ m!^application/json!) {
-        my $content = $self->{json_parser}->decode(decode_utf8($response->content));
+    if (   $response->decoded_content
+        && $response->header('content-type') =~ m!^application/json! )
+    {
+        my $content = $self->{json_parser}->decode( $response->decoded_content );
         $err_str = "$err_str: $content->{error}{message}";
     }
     die $err_str;
