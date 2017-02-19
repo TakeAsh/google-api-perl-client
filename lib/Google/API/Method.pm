@@ -46,10 +46,8 @@ sub execute {
             $request->content_type('application/json; charset=utf-8');
             $request->content( $self->{json_parser}->encode($body) );
         } elsif (%required_param) {
-            my $content = $uri->query;
-            $request->content_type('application/x-www-form-urlencoded');
-            $request->content($content);
-            $request->content_length( length($content) );
+            $request->content_type('application/json; charset=utf-8');
+            $request->content( $self->{json_parser}->encode( \%required_param ) );
         } else {
             $request->content_length(0);
         }
